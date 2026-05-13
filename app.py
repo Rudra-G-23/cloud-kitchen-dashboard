@@ -135,105 +135,209 @@ def kitchen_filter(df):
             
         return filtered_df
 
-st.title("Cloud Kitchen Dashboard")
-
-df = load_data()
-filtered_df = kitchen_filter(df)
-
-st.markdown("---")
-
-revenue = filtered_df["NET_REVENUE"].sum()
-gm = filtered_df["GM"].sum()
-cm = filtered_df["CM"].sum()
-# ebitda = filtered_df["EBITDA"].sum()
-
-gm_percent = (gm / revenue * 100) if revenue != 0 else 0
-cm_percent = (cm / revenue * 100) if revenue != 0 else 0
-
-c1, c2, c3, c4, c5 = st.columns(5)
-
-c1.metric("Revenue", f"₹ {revenue:,.0f}")
-c2.metric("GM", f"₹ {gm:,.0f}")
-c3.metric("GM%", f"{gm_percent:.2f}%")
-c4.metric("CM", f"₹ {cm:,.0f}")
-c5.metric("CM%", f"{cm_percent:.2f}%")
-
 st.markdown(
     """
     <style>
     button[data-baseweb="tab"] > div[data-testid="stMarkdownContainer"] > p {
-        font-size: 25px;
+        font-size: 20px;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
-   
-tab1, tab2, tab3 = st.tabs([
-    "All Filter Data",
-    "Store Wise",
-    "Month Wise"
-])
 
-# Data
-with tab1:
+st.title("🧑‍🍳 Cloud Kitchen Dashboard")
 
-    st.dataframe(
-        filtered_df,
-        use_container_width=True,
-        height=600
-    )
+df = load_data()
 
-# Store
-with tab2:
 
-    store_summary = (
-        filtered_df
-        .groupby("STORE")
-        .agg({
-            "NET_REVENUE": "sum",
-            "GM": "sum",
-            "CM": "sum",
-            "EBITDA": "sum",
-            "ORDER_COUNT": "sum"
-        })
-        .reset_index()
-    )
+d1, d2 = st.tabs([
+    "Dashboard 1 - Kitchen Level PnL", 
+    "Dashboard 2 - Variance Level PnL" 
+    ])
+    
+with d1:
+    st.title("Dashboard 1 - Kitchen Level PnL")
+    
+    filtered_df = kitchen_filter(df)
+    
+    revenue = filtered_df["NET_REVENUE"].sum()
+    gm = filtered_df["GM"].sum()
+    cm = filtered_df["CM"].sum()
+    # ebitda = filtered_df["EBITDA"].sum()
 
-    store_summary["GM%"] = ( store_summary["GM"] / store_summary["NET_REVENUE"] ) * 100
+    gm_percent = (gm / revenue * 100) if revenue != 0 else 0
+    cm_percent = (cm / revenue * 100) if revenue != 0 else 0
 
-    store_summary["CM_%"] = ( store_summary["CM"] / store_summary["NET_REVENUE"] ) * 100
+    c1, c2, c3, c4, c5 = st.columns(5)
 
-    st.dataframe( store_summary, use_container_width=True )
+    c1.metric("Revenue", f"₹ {revenue:,.0f}")
+    c2.metric("GM", f"₹ {gm:,.0f}")
+    c3.metric("GM%", f"{gm_percent:.2f}%")
+    c4.metric("CM", f"₹ {cm:,.0f}")
+    c5.metric("CM%", f"{cm_percent:.2f}%")
 
-# Month
-with tab3:
+    
+    d1_tab1, d1_tab2, d1_tab3, d1_tab4 = st.tabs([
+        "All Filter Data",
+        "Store Wise",
+        "Month Wise",
+        "Pivot Summary PnL"
+    ])
 
-    month_summary = (
-        filtered_df
-        .groupby(["YEAR", "MONTH_NAME"])
-        .agg({
-            "NET_REVENUE": "sum",
-            "GM": "sum",
-            "CM": "sum",
-            "EBITDA": "sum",
-            "ORDER_COUNT": "sum"
-        })
-        .reset_index()
-    )
+    # Data
+    with d1_tab1:
 
-    month_summary["GM%"] = ( month_summary["GM"] / month_summary["NET_REVENUE"] ) * 100
+        st.dataframe(
+            filtered_df,
+            height=600
+        )
 
-    month_summary["CM_%"] = ( month_summary["CM"] / month_summary["NET_REVENUE"] ) * 100
+    # Store
+    with d1_tab2:
 
-    st.dataframe( month_summary, use_container_width=True )
+        store_summary = (
+            filtered_df
+            .groupby("STORE")
+            .agg({
+                "NET_REVENUE": "sum",
+                "GM": "sum",
+                "CM": "sum",
+                "EBITDA": "sum",
+                "ORDER_COUNT": "sum"
+            })
+            .reset_index()
+        )
 
-# Download
-csv = filtered_df.to_csv(index=False)
+        store_summary["GM%"] = ( store_summary["GM"] / store_summary["NET_REVENUE"] ) * 100
 
-st.download_button(
+        store_summary["CM_%"] = ( store_summary["CM"] / store_summary["NET_REVENUE"] ) * 100
+
+        st.dataframe( store_summary )
+
+    # Month
+    with d1_tab3:
+
+        month_summary = (
+            filtered_df
+            .groupby(["YEAR", "MONTH_NAME"])
+            .agg({
+                "NET_REVENUE": "sum",
+                "GM": "sum",
+                "CM": "sum",
+                "EBITDA": "sum",
+                "ORDER_COUNT": "sum"
+            })
+            .reset_index()
+        )
+
+        month_summary["GM%"] = ( month_summary["GM"] / month_summary["NET_REVENUE"] ) * 100
+
+        month_summary["CM_%"] = ( month_summary["CM"] / month_summary["NET_REVENUE"] ) * 100
+
+        st.dataframe( month_summary)
+
+    #pivot table
+    with d1_tab4:
+        pivot_table_df = pd.pivot_table(
+            df,
+            values= [ "NET_REVENUE", "GM", "CM", "EBITDA" ],
+            index= ["REVENUE_COHORT", "CM_COHORT", "EBITDA_CATEGORY", "EBITDA_COHORT"],
+            columns=["MONTH_NAME", "YEAR"],
+            aggfunc="sum",
+            fill_value=0
+        )
+        
+        st.dataframe(
+             pivot_table_df
+         )
+        
+    # Download
+    csv = filtered_df.to_csv(index=False)
+
+    st.download_button(
     "Download CSV",
     csv,
     "filtered_kitchen_data.csv",
     "text/csv"
-)
+    )
+    
+
+with d2:
+    st.title("Dashboard 2 - Variance Level PnL")
+        
+    d2_tab1, d2_tab2, d2_tab3 = st.tabs([
+        "Variance by Revenue Category",
+          "Store Count",
+          "Revenue Cohort"
+          
+    ])
+    
+    with d2_tab1:
+        
+        bins = [10019, 15495, 20195, 25181, 29994]
+        labels = ['Low', 'Medium-Low', 'Medium-High', 'High']
+        
+        df['VARIANCE_CATEGORY'] = pd.cut(
+            df['VARIANCE'],
+            bins=bins,
+            labels=labels,
+            include_lowest=True
+        )
+        
+        variance_pivot_table = pd.pivot_table(
+            df,
+            values="VARIANCE",
+            index="REVENUE_COHORT",
+            columns=["YEAR", "MONTH_NAME"],
+            aggfunc="mean",
+            fill_value=0
+        )
+        
+        grand_total = pd.DataFrame(
+            variance_pivot_table.sum(axis=0)
+        ).T
+        grand_total.index = ["Grand Total"]
+        
+        st.dataframe(variance_pivot_table)
+        st.dataframe(grand_total)
+    
+    with d2_tab2:
+        
+        store_count_table =  pd.pivot_table(
+            df,
+            values="STORE",
+            index="VARIANCE_CATEGORY",
+            columns=["YEAR", "MONTH_NAME"],
+            aggfunc="count",
+            fill_value=0,
+            observed=True
+        )
+        
+        grand_total_store_count_df = pd.DataFrame(
+            store_count_table.sum(axis=0)
+        ).T
+        grand_total_store_count_df.index = ["Grand Total"]
+ 
+        st.dataframe(store_count_table)
+        st.dataframe(grand_total_store_count_df)
+        
+    with d2_tab3:
+        
+        revenue_cohort_table =  pd.pivot_table(
+            df,
+            values="STORE",
+            index="REVENUE_COHORT",
+            columns=["YEAR", "MONTH_NAME"],
+            aggfunc="count",
+            fill_value=0,
+            observed=True
+        )
+        
+        revenue_cohort_table_df = pd.DataFrame(
+            revenue_cohort_table.sum(axis=0)
+        ).T
+        revenue_cohort_table_df.index = ["Grand Total"]
+        
+        st.dataframe(revenue_cohort_table)
+        st.dataframe(revenue_cohort_table_df)
