@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
 # Page
 st.set_page_config(
@@ -24,9 +25,9 @@ def load_data():
 
     df["GM"] = df["GROSS_MARGIN"]
 
-    df["GM%"] = ( df["GROSS_MARGIN"] / df["NET_REVENUE"] ) * 100
+    df["GM_%"] = ( df["GROSS_MARGIN"] / df["NET_REVENUE"] ) * 100
 
-    df["CM"] = df["KITCHEN_EBITDA"]
+    df["CM"] = df["NET_REVENUE"] - df["IDEAL_FOOD_COST"] - df["DISCOUNT"]
 
     df["CM_%"] = ( df["CM"] / df["NET_REVENUE"] ) * 100
 
@@ -150,12 +151,13 @@ st.title("🧑‍🍳 Cloud Kitchen Dashboard")
 
 df = load_data()
 
-
-d1, d2 = st.tabs([
-    "Dashboard 1 - Kitchen Level PnL", 
-    "Dashboard 2 - Variance Level PnL" 
+d1, d2, d3 = st.tabs([
+    "Kitchen Level PnL", 
+    "Variance Level PnL",
+    "Graphs"
     ])
-    
+
+# Kitchen PnL
 with d1:
     st.title("Dashboard 1 - Kitchen Level PnL")
     
@@ -192,7 +194,17 @@ with d1:
             filtered_df,
             height=600
         )
+        
+        # Download
+        csv = filtered_df.to_csv(index=False)
 
+        st.download_button(
+        "Download CSV",
+        csv,
+        "filtered_kitchen_data.csv",
+        "text/csv"
+        )
+        
     # Store
     with d1_tab2:
 
@@ -251,21 +263,32 @@ with d1:
         st.dataframe(
              pivot_table_df
          )
-        
-    # Download
-    csv = filtered_df.to_csv(index=False)
 
-    st.download_button(
-    "Download CSV",
-    csv,
-    "filtered_kitchen_data.csv",
-    "text/csv"
-    )
-    
-
+# Variance PnL
 with d2:
     st.title("Dashboard 2 - Variance Level PnL")
-        
+
+
+    bins = [10019, 15495, 20195, 25181, 29994]
+    labels = ['Low', 'Medium-Low', 'Medium-High', 'High']
+    
+    df['VARIANCE_CATEGORY'] = pd.cut(
+        df['VARIANCE'],
+        bins=bins,
+        labels=labels,
+        include_lowest=True
+    )
+    
+    variance_filter = st.multiselect(
+        label="Variance Category: ",
+        options=sorted(df["VARIANCE_CATEGORY"].dropna().unique()),
+        default=sorted(df["VARIANCE_CATEGORY"].dropna().unique())
+    )
+    
+    variance_filter_df = df[
+        df['VARIANCE_CATEGORY'].isin(variance_filter)
+    ]
+    
     d2_tab1, d2_tab2, d2_tab3 = st.tabs([
         "Variance by Revenue Category",
           "Store Count",
@@ -275,18 +298,9 @@ with d2:
     
     with d2_tab1:
         
-        bins = [10019, 15495, 20195, 25181, 29994]
-        labels = ['Low', 'Medium-Low', 'Medium-High', 'High']
-        
-        df['VARIANCE_CATEGORY'] = pd.cut(
-            df['VARIANCE'],
-            bins=bins,
-            labels=labels,
-            include_lowest=True
-        )
-        
+   
         variance_pivot_table = pd.pivot_table(
-            df,
+            variance_filter_df,
             values="VARIANCE",
             index="REVENUE_COHORT",
             columns=["YEAR", "MONTH_NAME"],
@@ -305,7 +319,7 @@ with d2:
     with d2_tab2:
         
         store_count_table =  pd.pivot_table(
-            df,
+            variance_filter_df,
             values="STORE",
             index="VARIANCE_CATEGORY",
             columns=["YEAR", "MONTH_NAME"],
@@ -325,7 +339,7 @@ with d2:
     with d2_tab3:
         
         revenue_cohort_table =  pd.pivot_table(
-            df,
+            variance_filter_df,
             values="STORE",
             index="REVENUE_COHORT",
             columns=["YEAR", "MONTH_NAME"],
@@ -341,3 +355,244 @@ with d2:
         
         st.dataframe(revenue_cohort_table)
         st.dataframe(revenue_cohort_table_df)
+
+# Graphs
+with d3:
+    
+    st.info(
+        icon="ℹ️",
+        body="Due to dummy data graphs looks similar."
+        )
+    
+    chart1 = px.bar(df,
+        x="STORE",
+        y="NET_REVENUE",
+        title="Store Wise Revenue"
+        )
+
+    st.plotly_chart(
+        chart1,
+        use_container_width=True
+    )
+    
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        month_summary = (
+            df
+            .groupby(["MONTH_NAME", "YEAR"])["NET_REVENUE"]
+            .sum()
+            .reset_index()
+        )
+
+        month_summary_fig = px.line(
+            month_summary,
+            x="MONTH_NAME",
+            y="NET_REVENUE",
+            markers=True,
+            title="Monthly Revenue Trend"
+        )
+
+        st.plotly_chart(month_summary_fig, use_container_width=True)
+
+    with c2: 
+        finance_summary = (
+            df
+            .groupby("MONTH")[["GM", "CM", "EBITDA"]]
+            .sum()
+            .reset_index()
+        )
+
+        finance_summary_fig = px.bar(
+            finance_summary,
+            x="MONTH",
+            y=["GM", "CM", "EBITDA"],
+            barmode="group",
+            title="GM vs CM vs EBITDA"
+        )
+
+        st.plotly_chart(finance_summary_fig, use_container_width=True)
+
+    zone_fig = px.treemap(
+        df,
+        path=["ZONE_MAPPING", "CITY", "STORE"],
+        values="NET_REVENUE",
+        color="EBITDA",
+        title="Treemap Revenue Analysis"
+    )
+
+    st.plotly_chart(zone_fig, use_container_width=True)
+
+
+    c1, c2 = st.columns(2)
+    
+    with c1:
+            
+        city_summary = (
+            df
+            .groupby("CITY")["EBITDA"]
+            .sum()
+            .reset_index()
+        )
+
+        city_summary_fig = px.bar(
+            city_summary,
+            x="CITY",
+            y="EBITDA",
+            color="EBITDA",
+            title="City Wise EBITDA"
+        )
+
+        st.plotly_chart(city_summary_fig, use_container_width=True)
+
+    with c2:
+            
+        cohort_summary = (
+            df
+            .groupby("REVENUE_COHORT")["NET_REVENUE"]
+            .sum()
+            .reset_index()
+        )
+
+        cohort_summary_fig = px.pie(
+            cohort_summary,
+            names="REVENUE_COHORT",
+            values="NET_REVENUE",
+            hole=0.5,
+            title="Revenue Cohort Distribution"
+        )
+
+        st.plotly_chart(cohort_summary_fig, use_container_width=True)
+
+    c1, c2 = st.columns(2)
+        
+    with c1:
+            
+        variance_pivot_heat_df = df.pivot_table(
+            index="REVENUE_COHORT",
+            columns="MONTH_NAME",
+            values="VARIANCE",
+            aggfunc="mean"
+        )
+
+        var_heat_fig = px.imshow(
+            variance_pivot_heat_df,
+            text_auto=True,
+            aspect="auto",
+            title="Variance Heatmap"
+        )
+
+        st.plotly_chart(var_heat_fig, use_container_width=True)
+
+    with c2:
+        
+        rev_vs_ebitda_fig = px.scatter(
+            df,
+            x="NET_REVENUE",
+            y="EBITDA",
+            color="CITY",
+            size="ORDER_COUNT",
+            hover_data=["STORE"],
+            title="Revenue vs EBITDA"
+        )
+
+        st.plotly_chart(rev_vs_ebitda_fig, use_container_width=True)
+
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        variance_count = (
+            df
+            .groupby("VARIANCE_CATEGORY")["STORE"]
+            .nunique()
+            .reset_index(name="STORE_COUNT")
+        )
+
+        variance_count_fig = px.bar(
+            variance_count,
+            x="VARIANCE_CATEGORY",
+            y="STORE_COUNT",
+            color="STORE_COUNT",
+            title="Store Count by Variance Category"
+        )
+
+        st.plotly_chart(variance_count_fig, use_container_width=True)
+    
+    with c2:
+        
+        city_store_fig = px.sunburst(
+            df,
+            path=["CITY", "STORE"],
+            values="NET_REVENUE",
+            title="City to Store Revenue Breakdown"
+        )
+
+        st.plotly_chart(city_store_fig, use_container_width=True)
+
+
+    c1,  c2 = st.columns(2)
+    
+    with c1:
+        city_box_fig = px.box(
+            df,
+            x="CITY",
+            y="VARIANCE",
+            color="CITY",
+            title="Variance Distribution by City"
+        )
+
+        st.plotly_chart(city_box_fig, use_container_width=True)
+
+    with c2:
+            
+        fig = px.scatter(
+            df,
+            x="GM_%",
+            y="CM_%",
+            size="NET_REVENUE",
+            color="CITY",
+            hover_name="STORE",
+            title="GM% vs CM%"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+
+    c1, c2 = st.columns(2)
+    
+    with c1:
+            
+        cm_cohort_summary = (
+            df
+            .groupby("CITY")["CM_COHORT"]
+            .count()
+            .reset_index()
+        )
+
+        city_summary_fig = px.bar(
+            cm_cohort_summary,
+            x="CITY",
+            y="CM_COHORT",
+            color="CM_COHORT",
+            title="City Wise CM_COHORT"
+        )
+
+        st.plotly_chart(city_summary_fig, use_container_width=True)
+
+    with c2:
+            
+        ebita_cohort_summary = (
+            df
+            .groupby("CITY")["EBITDA"]
+            .count()
+            .reset_index()
+        )
+
+        ebita_cohort_summary_fig = px.pie(
+            ebita_cohort_summary,
+            names="CITY",
+            values="EBITDA",
+            title="EBITDA Cohort Distribution"
+        )
+
+        st.plotly_chart(ebita_cohort_summary_fig, use_container_width=True)
