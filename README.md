@@ -2,6 +2,8 @@
 
 An interactive dashboard built with **Streamlit** and **Plotly** to understand and analyze the Profit and Loss (PnL) of a Cloud Kitchen network. 
 
+**Live**: https://cloud-kitchen-dashboard.streamlit.app
+
 ## 🚀 Features
 
 - **Advanced Data Filtering**: Filter metrics by Month, Year, Store, City, Revenue Cohort, CM Cohort, EBITDA Range, and more.
@@ -14,6 +16,11 @@ An interactive dashboard built with **Streamlit** and **Plotly** to understand a
   - Variance Heatmaps and Box Plots
   - Store-level breakdowns (Sunburst & Treemap charts)
 - **Data Export**: Export your filtered datasets as CSV for external analysis.
+
+## 📈 Dashboard 
+
+https://github.com/user-attachments/assets/70c335cf-664a-4320-92c2-2876a2b55fb6
+
 
 ## 🛠️ Technology Stack
 
@@ -68,3 +75,6 @@ The app relies on kitchen PnL data stored in an Excel file (`kittchen-pnl-data.x
 ## 📄 License
 
 This project is licensed under the terms specified in the `LICENSE` file.
+
+
+Connect with me: https://rudra-g-23.github.io/
